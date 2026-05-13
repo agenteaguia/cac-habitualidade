@@ -1,0 +1,1648 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CAC · Habitualidade</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #f5f6f8;
+    --bg2:       #ffffff;
+    --bg3:       #f0f1f4;
+    --bg4:       #e8eaee;
+    --border:    #e2e4e9;
+    --border2:   #d4d7de;
+    --text:      #1a1d23;
+    --text2:     #5a6072;
+    --text3:     #9298a8;
+    --green:     #0e9e6a;
+    --green-bg:  rgba(14,158,106,.08);
+    --yellow:    #c07a00;
+    --yellow-bg: rgba(192,122,0,.08);
+    --red:       #d93737;
+    --red-bg:    rgba(217,55,55,.08);
+    --blue:      #1a6fd4;
+    --blue-bg:   rgba(26,111,212,.08);
+    --accent:    #1a6fd4;
+    --radius:    10px;
+    --radius-sm: 6px;
+  }
+  *,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Syne', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+  }
+  /* LAYOUT */
+  .shell { display: flex; flex-direction: column; min-height: 100vh; }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px; height: 56px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .logo { font-weight: 800; font-size: 16px; letter-spacing: .04em; }
+  .logo span { color: var(--accent); }
+  nav { display: flex; gap: 4px; }
+  nav button {
+    background: none; border: none; cursor: pointer;
+    color: var(--text2); font-family: 'Syne', sans-serif;
+    font-size: 13px; font-weight: 600; padding: 6px 14px;
+    border-radius: var(--radius-sm); transition: all .15s;
+    letter-spacing: .03em;
+  }
+  nav button:hover { background: var(--bg3); color: var(--text); }
+  nav button.active { background: var(--bg3); color: var(--accent); }
+  main { flex: 1; padding: 24px; max-width: 1100px; margin: 0 auto; width: 100%; }
+  /* VIEWS */
+  .view { display: none; }
+  .view.active { display: block; }
+  /* CARDS */
+  .card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px;
+  }
+  .card-title {
+    font-size: 11px; font-weight: 700; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--text3); margin-bottom: 16px;
+  }
+  .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .grid-1 { margin-bottom: 16px; }
+  /* STAT CARDS */
+  .stat {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px 18px;
+  }
+  .stat-label { font-size: 11px; color: var(--text3); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 6px; }
+  .stat-value { font-size: 28px; font-weight: 800; line-height: 1; }
+  .stat-sub { font-size: 11px; color: var(--text3); margin-top: 4px; font-family: 'DM Mono', monospace; }
+  /* GRUPO CARDS */
+  .grupo-card {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px;
+    border-left: 3px solid transparent;
+    transition: border-color .2s;
+  }
+  .grupo-card.ok  { border-left-color: var(--green); }
+  .grupo-card.warn{ border-left-color: var(--yellow); }
+  .grupo-card.bad { border-left-color: var(--red); }
+  .grupo-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .grupo-nome { font-size: 13px; font-weight: 700; }
+  .badge {
+    font-size: 10px; font-weight: 700; letter-spacing: .08em;
+    padding: 3px 9px; border-radius: 20px; text-transform: uppercase;
+    font-family: 'DM Mono', monospace;
+  }
+  .badge.ok   { background: var(--green-bg);  color: var(--green);  }
+  .badge.warn { background: var(--yellow-bg); color: var(--yellow); }
+  .badge.bad  { background: var(--red-bg);    color: var(--red);    }
+  .bar-row { margin-bottom: 10px; }
+  .bar-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--text2); margin-bottom: 4px; font-family: 'DM Mono', monospace; }
+  .bar-track { height: 6px; background: var(--bg4); border-radius: 3px; position: relative; overflow: visible; }
+  .bar-fill  { height: 6px; border-radius: 3px; transition: width .4s ease; }
+  .bar-marker { position: absolute; top: -3px; width: 2px; height: 12px; background: var(--border2); border-radius: 1px; }
+  /* ALERTAS */
+  .alerta {
+    display: flex; gap: 12px; align-items: flex-start;
+    padding: 14px 16px; border-radius: var(--radius);
+    border: 1px solid; margin-bottom: 10px;
+  }
+  .alerta.ok     { background: var(--green-bg);  border-color: rgba(45,204,143,.25);  }
+  .alerta.warn   { background: var(--yellow-bg); border-color: rgba(240,180,41,.25);  }
+  .alerta.danger { background: var(--red-bg);    border-color: rgba(242,92,92,.25);   }
+  .alerta-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+  .alerta.ok     .alerta-icon { color: var(--green);  }
+  .alerta.warn   .alerta-icon { color: var(--yellow); }
+  .alerta.danger .alerta-icon { color: var(--red);    }
+  .alerta-title { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+  .alerta-text  { font-size: 12px; color: var(--text2); line-height: 1.5; }
+  /* FORMULÁRIOS */
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+  .form-row.full { grid-template-columns: 1fr; }
+  .form-row.three { grid-template-columns: 1fr 1fr 1fr; }
+  label { font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--text3); display: block; margin-bottom: 6px; }
+  input, select, textarea {
+    width: 100%; background: var(--bg3); border: 1px solid var(--border2);
+    border-radius: var(--radius-sm); color: var(--text);
+    font-family: 'DM Mono', monospace; font-size: 13px;
+    padding: 9px 12px; outline: none; transition: border-color .15s;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+  select option { background: #fff; color: #1a1d23; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--accent); color: #fff; border: none; cursor: pointer;
+    font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700;
+    letter-spacing: .04em; padding: 10px 20px; border-radius: var(--radius-sm);
+    transition: opacity .15s; white-space: nowrap;
+  }
+  .btn:hover { opacity: .85; }
+  .btn.secondary { background: var(--bg3); border: 1px solid var(--border2); color: var(--text2); }
+  .btn.danger { background: var(--red-bg); border: 1px solid rgba(242,92,92,.3); color: var(--red); }
+  .btn.small { padding: 6px 12px; font-size: 12px; }
+  /* TABELA */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text3); padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border); font-family: 'DM Mono', monospace; }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text2); font-family: 'DM Mono', monospace; font-size: 12px; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg3); color: var(--text); }
+  /* UPLOAD */
+  .upload-zone {
+    border: 2px dashed var(--border2); border-radius: var(--radius);
+    padding: 40px; text-align: center; cursor: pointer;
+    transition: border-color .2s, background .2s;
+  }
+  .upload-zone:hover, .upload-zone.drag { border-color: var(--accent); background: var(--blue-bg); }
+  .upload-icon { font-size: 32px; margin-bottom: 12px; }
+  .upload-title { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+  .upload-sub { font-size: 12px; color: var(--text3); font-family: 'DM Mono', monospace; }
+  /* CALENDÁRIO */
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .cal-day-name { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text3); text-align: center; padding: 6px 0; font-family: 'DM Mono', monospace; }
+  .cal-day {
+    aspect-ratio: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; border-radius: 6px;
+    font-size: 12px; font-family: 'DM Mono', monospace; cursor: default;
+    position: relative; transition: background .15s;
+  }
+  .cal-day.other-month { color: var(--text3); }
+  .cal-day.has-treino { background: rgba(74,158,255,.15); color: var(--blue); font-weight: 700; }
+  .cal-day.has-comp   { background: rgba(45,204,143,.15); color: var(--green); font-weight: 700; }
+  .cal-day.has-both   { background: rgba(240,180,41,.15); color: var(--yellow); font-weight: 700; }
+  .cal-day.today      { outline: 1px solid var(--accent); }
+  .cal-dot { width: 4px; height: 4px; border-radius: 50%; position: absolute; bottom: 3px; }
+  .cal-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .cal-month { font-size: 15px; font-weight: 800; }
+  /* CONFIGURAÇÕES */
+  .config-grupo {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px; margin-bottom: 12px;
+  }
+  .config-grupo-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .config-grupo-nome { font-size: 14px; font-weight: 700; }
+  /* CHIP */
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--bg4); border: 1px solid var(--border2);
+    border-radius: 20px; padding: 3px 10px;
+    font-size: 11px; font-family: 'DM Mono', monospace; color: var(--text2);
+  }
+  .chip.tipo-T { background: var(--blue-bg);  color: var(--blue);  border-color: rgba(74,158,255,.3);  }
+  .chip.tipo-C { background: var(--green-bg); color: var(--green); border-color: rgba(45,204,143,.3); }
+  /* DIVIDER */
+  .divider { height: 1px; background: var(--border); margin: 20px 0; }
+  /* SECTION TITLE */
+  .section-title { font-size: 20px; font-weight: 800; margin-bottom: 6px; }
+  .section-sub   { font-size: 13px; color: var(--text3); margin-bottom: 20px; font-family: 'DM Mono', monospace; }
+  /* CANVAS */
+  .chart-wrap { position: relative; width: 100%; height: 220px; }
+  /* NIVEL BADGE GRANDE */
+  .nivel-display {
+    font-size: 48px; font-weight: 800; line-height: 1;
+    font-family: 'DM Mono', monospace;
+  }
+  .nivel-display.n3 { color: var(--green); }
+  .nivel-display.n2 { color: var(--blue); }
+  .nivel-display.n1 { color: var(--yellow); }
+  .nivel-display.n0 { color: var(--red); }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+  /* RESPONSIVE */
+  @media(max-width: 600px) {
+    main { padding: 16px; }
+    .grid-2 { grid-template-columns: 1fr; }
+    nav button { padding: 6px 10px; font-size: 12px; }
+    header { padding: 0 16px; }
+    .form-row { grid-template-columns: 1fr; }
+    .form-row.three { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+<!-- AUTH SCREEN -->
+<div id="auth-screen" style="display:none;min-height:100vh;background:var(--bg);align-items:center;justify-content:center;flex-direction:column;gap:0;">
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:36px 32px;width:100%;max-width:380px;box-shadow:0 4px 24px rgba(0,0,0,.06);">
+    <div style="text-align:center;margin-bottom:24px;">
+      <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:20px;letter-spacing:.04em;margin-bottom:4px;">CAC <span style="color:var(--accent);">·</span> HABITUALIDADE</div>
+      <div id="auth-title" style="font-size:15px;font-weight:700;color:var(--text);margin-top:12px;">Entrar</div>
+    </div>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:6px;">E-mail</label>
+      <input type="email" id="auth-email" placeholder="seu@email.com" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);font-family:'DM Mono',monospace;font-size:13px;padding:9px 12px;outline:none;">
+    </div>
+    <div style="margin-bottom:20px;">
+      <label style="font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:6px;">Senha</label>
+      <input type="password" id="auth-pass" placeholder="••••••••" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);font-family:'DM Mono',monospace;font-size:13px;padding:9px 12px;outline:none;" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button id="auth-btn-login" onclick="doLogin()" style="display:block;width:100%;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);font-family:'Syne',sans-serif;font-size:14px;font-weight:700;padding:11px;cursor:pointer;margin-bottom:8px;">Entrar</button>
+    <button id="auth-btn-signup" onclick="doSignup()" style="display:none;width:100%;background:var(--green);color:#fff;border:none;border-radius:var(--radius-sm);font-family:'Syne',sans-serif;font-size:14px;font-weight:700;padding:11px;cursor:pointer;margin-bottom:8px;">Criar conta</button>
+    <div id="auth-msg" style="font-size:12px;font-family:'DM Mono',monospace;text-align:center;min-height:18px;color:var(--text3);"></div>
+    <div style="text-align:center;margin-top:12px;">
+      <button id="auth-toggle-txt" onclick="toggleAuthMode()" style="background:none;border:none;color:var(--accent);font-size:12px;cursor:pointer;font-family:'DM Mono',monospace;">Não tem conta? Criar</button>
+    </div>
+  </div>
+</div>
+
+<!-- APP SHELL -->
+<div id="app-shell" style="display:none;">
+<div class="shell">
+  <header>
+    <div class="logo">CAC <span>·</span> HABITUALIDADE</div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span id="header-user-email" style="font-size:11px;font-family:'DM Mono',monospace;color:var(--text3);"></span>
+      <button onclick="doLogout()" style="background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius-sm);font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--text2);padding:5px 12px;cursor:pointer;">Sair</button>
+    </div>
+    <nav>
+      <button class="active" onclick="goTo('dashboard')">Dashboard</button>
+      <button onclick="goTo('eventos')">Eventos</button>
+      <button onclick="goTo('calendario')">Calendário</button>
+      <button onclick="goTo('config')">Configurações</button>
+    </nav>
+  </header>
+  <main>
+
+    <!-- DASHBOARD -->
+    <div id="view-dashboard" class="view active">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
+        <div>
+          <div class="section-title">Situação atual</div>
+          <div class="section-sub" id="dash-periodo">—</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:4px;">Nível geral</div>
+          <div class="nivel-display n1" id="dash-nivel-geral">—</div>
+        </div>
+      </div>
+
+      <!-- SELETOR DE PERÍODO -->
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+        <span style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);">Período:</span>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;">
+          <button class="periodo-tab active" onclick="setPeriodo('ano1')" id="tab-ano1">Ano 1</button>
+          <button class="periodo-tab" onclick="setPeriodo('ano2')" id="tab-ano2">Ano 2</button>
+          <button class="periodo-tab" onclick="setPeriodo('ano3')" id="tab-ano3">Ano 3</button>
+          <button class="periodo-tab" onclick="setPeriodo('3anos')" id="tab-3anos">Visão 3 anos</button>
+        </div>
+        <span style="font-size:11px;font-family:'DM Mono',monospace;color:var(--text3);" id="dash-periodo-range">—</span>
+      </div>
+
+      <div class="grid-4" id="dash-stats"></div>
+      <div id="dash-alertas" style="margin-bottom:16px;"></div>
+      <div id="dash-grupos" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:16px;"></div>
+
+      <!-- VISÃO 3 ANOS SIDE BY SIDE -->
+      <div id="dash-3anos" style="display:none;margin-bottom:16px;"></div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">Eventos por mês</div>
+          <div class="chart-wrap"><canvas id="chart-mensal"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Decaimento — prazo sem treinar</div>
+          <div class="chart-wrap"><canvas id="chart-decaimento"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EVENTOS -->
+    <div id="view-eventos" class="view">
+      <div class="section-title">Eventos</div>
+      <div class="section-sub">Importe via CSV ou cadastre manualmente</div>
+
+      <div class="grid-2" style="margin-bottom:20px;">
+        <!-- Upload CSV -->
+        <div class="card">
+          <div class="card-title">Importar CSV</div>
+          <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()"
+               ondragover="event.preventDefault();this.classList.add('drag')"
+               ondragleave="this.classList.remove('drag')"
+               ondrop="handleDrop(event)">
+            <div class="upload-icon">📂</div>
+            <div class="upload-title">Arraste o CSV ou clique aqui</div>
+            <div class="upload-sub">Colunas: DATA ; GRUPO ARMA ; EVENTO ; NIVEL ; TIPO ARMA</div>
+          </div>
+          <input type="file" id="file-input" accept=".csv" style="display:none" onchange="handleFileInput(event)">
+          <div id="import-feedback" style="margin-top:12px;font-size:12px;font-family:'DM Mono',monospace;color:var(--text3);"></div>
+          <div style="margin-top:12px;">
+            <button class="btn secondary small" onclick="exportCSV()">⬇ Exportar CSV atual</button>
+          </div>
+        </div>
+
+        <!-- Cadastro manual -->
+        <div class="card">
+          <div class="card-title">Cadastro manual</div>
+          <div class="form-row">
+            <div>
+              <label>Data</label>
+              <input type="date" id="ev-data">
+            </div>
+            <div>
+              <label>Grupo de arma</label>
+              <select id="ev-grupo"></select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div>
+              <label>Tipo</label>
+              <select id="ev-tipo">
+                <option value="TREINAMENTO">Treinamento</option>
+                <option value="COMPETICAO">Competição</option>
+              </select>
+            </div>
+            <div>
+              <label>Nível</label>
+              <select id="ev-nivel">
+                <option value="MUNICIPAL">Municipal</option>
+                <option value="ESTADUAL">Estadual</option>
+                <option value="REGIONAL">Regional</option>
+                <option value="NACIONAL">Nacional</option>
+                <option value="INTERNACIONAL">Internacional</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row full">
+            <div>
+              <label>Nome do evento</label>
+              <input type="text" id="ev-nome" placeholder="Ex: Copa LIAN — 2ª etapa">
+            </div>
+          </div>
+          <button class="btn" onclick="addEvento()">+ Adicionar evento</button>
+        </div>
+      </div>
+
+      <!-- Tabela de eventos -->
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+          <div class="card-title" style="margin-bottom:0;">Todos os eventos (<span id="ev-count">0</span>)</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <select id="filtro-grupo" style="width:auto;font-size:12px;padding:6px 10px;" onchange="renderTabela()">
+              <option value="">Todos os grupos</option>
+            </select>
+            <select id="filtro-tipo" style="width:auto;font-size:12px;padding:6px 10px;" onchange="renderTabela()">
+              <option value="">Todos os tipos</option>
+              <option value="TREINAMENTO">Treinamento</option>
+              <option value="COMPETICAO">Competição</option>
+            </select>
+            <button class="btn danger small" onclick="limparTodos()">🗑 Limpar todos</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Grupo</th>
+                <th>Tipo</th>
+                <th>Nível</th>
+                <th>Evento</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="tabela-eventos"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- CALENDÁRIO -->
+    <div id="view-calendario" class="view">
+      <div class="section-title">Calendário</div>
+      <div class="section-sub">Visão mensal dos eventos cadastrados</div>
+      <div class="card" style="margin-bottom:16px;">
+        <div class="cal-nav">
+          <button class="btn secondary small" onclick="calMes(-1)">← anterior</button>
+          <div class="cal-month" id="cal-titulo"></div>
+          <button class="btn secondary small" onclick="calMes(1)">próximo →</button>
+        </div>
+        <div class="cal-grid" id="cal-nomes"></div>
+        <div class="cal-grid" id="cal-dias" style="margin-top:4px;"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Legenda</div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:8px;font-size:12px;font-family:'DM Mono',monospace;">
+            <div style="width:16px;height:16px;border-radius:4px;background:rgba(74,158,255,.15);"></div>Treino
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:12px;font-family:'DM Mono',monospace;">
+            <div style="width:16px;height:16px;border-radius:4px;background:rgba(45,204,143,.15);"></div>Competição
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:12px;font-family:'DM Mono',monospace;">
+            <div style="width:16px;height:16px;border-radius:4px;background:rgba(240,180,41,.15);"></div>Treino + Comp
+          </div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px;" id="cal-detalhe-card">
+        <div class="card-title">Eventos do dia selecionado</div>
+        <div id="cal-detalhe-content" style="font-size:13px;color:var(--text3);font-family:'DM Mono',monospace;">Clique em um dia para ver os eventos.</div>
+      </div>
+    </div>
+
+    <!-- CONFIGURAÇÕES -->
+    <div id="view-config" class="view">
+      <div class="section-title">Configurações</div>
+      <div class="section-sub">Grupos de arma e dados do registro</div>
+
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-title">Dados do CR</div>
+        <div class="form-row">
+          <div>
+            <label>Data de emissão do CR</label>
+            <input type="date" id="cfg-cr-data" onchange="salvarConfig()">
+          </div>
+          <div>
+            <label>Nível atual</label>
+            <select id="cfg-nivel" onchange="salvarConfig()">
+              <option value="1">Nível 1</option>
+              <option value="2">Nível 2</option>
+              <option value="3">Nível 3</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+          <div class="card-title" style="margin-bottom:0;">Grupos de arma</div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn secondary small" id="btn-gerenciar" onclick="toggleGerenciar()">✎ Gerenciar</button>
+            <button class="btn small" onclick="showAddGrupo()">+ Novo grupo</button>
+          </div>
+        </div>
+        <div id="lista-grupos"></div>
+
+        <div id="form-novo-grupo" style="display:none;margin-top:16px;border-top:1px solid var(--border);padding-top:16px;">
+          <div class="form-row three">
+            <div>
+              <label>Sigla</label>
+              <input type="text" id="ng-sigla" placeholder="ACP" maxlength="6">
+            </div>
+            <div style="grid-column:span 2;">
+              <label>Nome completo</label>
+              <input type="text" id="ng-nome" placeholder="Arma Curta Permitida">
+            </div>
+          </div>
+          <div class="form-row">
+            <div>
+              <label>Cor</label>
+              <input type="color" id="ng-cor" value="#4a9eff" style="height:40px;padding:4px;">
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn small" onclick="addGrupo()">Salvar grupo</button>
+            <button class="btn secondary small" onclick="hideAddGrupo()">Cancelar</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="card">
+        <div class="card-title">Dados</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn secondary small" onclick="exportarDados()">⬇ Exportar backup JSON</button>
+          <button class="btn secondary small" onclick="document.getElementById('import-json').click()">⬆ Importar backup JSON</button>
+          <input type="file" id="import-json" accept=".json" style="display:none" onchange="importarJSON(event)">
+          <button class="btn danger small" onclick="resetarTudo()">⚠ Resetar tudo</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// =============================================
+// ESTADO GLOBAL
+// =============================================
+let state = {
+  eventos: [],   // { id, data, grupo, tipo, nivel, nome }
+  grupos: [
+    { sigla:'ACP',  nome:'Arma Curta Permitida',       cor:'#1a6fd4', acervo:false },
+    { sigla:'ACR',  nome:'Arma Curta Restrita',         cor:'#0e9e6a', acervo:false },
+    { sigla:'ALRP', nome:'Arma Longa Raiada Permitida', cor:'#7c5cbf', acervo:false },
+    { sigla:'ALRR', nome:'Arma Longa Raiada Restrita',  cor:'#d93737', acervo:false },
+    { sigla:'ALLP', nome:'Arma Longa Lisa Permitida',   cor:'#c07a00', acervo:false },
+  ],
+  cr_data: '',
+  nivel: 1,
+};
+
+let calAtual = new Date();
+let chartMensal = null;
+let chartDecaimento = null;
+
+// =============================================
+// PERSISTÊNCIA
+// =============================================
+function salvarState() {
+  try { localStorage.setItem('cac_state', JSON.stringify(state)); } catch(e){}
+  // sync async na nuvem (sem bloquear UI)
+}
+function carregarState() {
+  try {
+    const s = localStorage.getItem('cac_state');
+    if (s) {
+      const loaded = JSON.parse(s);
+      state = { ...state, ...loaded };
+      // Normalizar grupos: garantir que todos tenham o campo acervo
+      state.grupos = state.grupos.map(g => ({
+        acervo: false,
+        ...g,
+      }));
+    }
+  } catch(e){}
+}
+
+// =============================================
+// NAVEGAÇÃO
+// =============================================
+function goTo(view) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-' + view).classList.add('active');
+  event.target.classList.add('active');
+  if (view === 'dashboard') renderDashboard();
+  if (view === 'eventos')   renderEventos();
+  if (view === 'calendario') renderCalendario();
+  if (view === 'config')    renderConfig();
+}
+
+// =============================================
+// LÓGICA DE HABITUALIDADE
+// =============================================
+function parseDate(s) {
+  if (!s) return null;
+  const p = s.trim().split(' a ')[0];
+  const parts = p.split('/');
+  if (parts.length === 3) return new Date(parts[2], parts[1]-1, parts[0]);
+  return new Date(p);
+}
+
+function getEventosJanela(grupo, dataRef) {
+  const fim = new Date(dataRef);
+  const ini = new Date(dataRef);
+  ini.setDate(ini.getDate() - 364);
+
+  const treinos = new Set();
+  const comps = [];
+  const compsNacInt = [];
+
+  state.eventos.forEach(ev => {
+    const d = new Date(ev.data);
+    if (grupo && ev.grupo !== grupo) return;
+    if (d < ini || d > fim) return;
+
+    if (ev.tipo === 'TREINAMENTO') {
+      treinos.add(ev.data); // dedup por data
+    } else {
+      comps.push(ev);
+      if (['NACIONAL','INTERNACIONAL'].includes(ev.nivel)) compsNacInt.push(ev);
+    }
+  });
+
+  return { treinos: treinos.size, comps: comps.length, ni: compsNacInt.length };
+}
+
+function calcNivel(t, c, ni, nivel_config) {
+  const n1 = (t + c) >= 8;
+  const n2 = t >= 12 && c >= 4 && ni >= 0; // ni não é exigido separado no n2
+  const n3 = t >= 20 && c >= 6 && ni >= 2;
+  if (nivel_config >= 3 && n3) return 3;
+  if (nivel_config >= 2 && n2) return 2;
+  if (n1) return 1;
+  return 0;
+}
+
+function calcNivelN3(t, c, ni) {
+  return t >= 20 && c >= 6 && ni >= 2;
+}
+
+function getPrazoN3(grupo) {
+  const hoje = new Date();
+  let ultimo = null;
+  for (let d = 0; d <= 730; d++) {
+    const ref = new Date(hoje);
+    ref.setDate(ref.getDate() + d);
+    const { treinos: t, comps: c, ni } = getEventosJanela(grupo, ref);
+    if (calcNivelN3(t, c, ni)) ultimo = new Date(ref);
+    else if (ultimo) break;
+  }
+  return ultimo;
+}
+
+
+// =============================================
+// PERÍODO SELECIONADO
+// =============================================
+let periodoAtivo = 'ano1'; // ano1 | ano2 | ano3 | 3anos
+
+function getPeriodoDatas(periodo) {
+  const crData = state.cr_data ? new Date(state.cr_data) : new Date();
+  // ano1: CR+0 → CR+12m, ano2: CR+12m → CR+24m, ano3: CR+24m → CR+36m
+  const ini1 = new Date(crData);
+  const fim1 = new Date(crData); fim1.setFullYear(fim1.getFullYear()+1); fim1.setDate(fim1.getDate()-1);
+  const ini2 = new Date(fim1); ini2.setDate(ini2.getDate()+1);
+  const fim2 = new Date(ini2); fim2.setFullYear(fim2.getFullYear()+1); fim2.setDate(fim2.getDate()-1);
+  const ini3 = new Date(fim2); ini3.setDate(ini3.getDate()+1);
+  const fim3 = new Date(ini3); fim3.setFullYear(fim3.getFullYear()+1); fim3.setDate(fim3.getDate()-1);
+  if (periodo === 'ano1') return { ini: ini1, fim: fim1, label: 'Ano 1' };
+  if (periodo === 'ano2') return { ini: ini2, fim: fim2, label: 'Ano 2' };
+  if (periodo === 'ano3') return { ini: ini3, fim: fim3, label: 'Ano 3' };
+  return null;
+}
+
+function getEventosPeriodo(grupo, ini, fim) {
+  // Para cada período fixo: treinos = dedup por data+grupo, comps = cada inscrição conta
+  const treinos = new Set();
+  const comps = [];
+  const compsNI = [];
+  state.eventos.forEach(ev => {
+    const d = new Date(ev.data + 'T12:00');
+    if (grupo && ev.grupo !== grupo) return;
+    if (d < ini || d > fim) return;
+    if (ev.tipo === 'TREINAMENTO') {
+      treinos.add(ev.data + '|' + ev.grupo);
+    } else {
+      comps.push(ev);
+      if (['NACIONAL','INTERNACIONAL'].includes(ev.nivel)) compsNI.push(ev);
+    }
+  });
+  return { treinos: treinos.size, comps: comps.length, ni: compsNI.length };
+}
+
+function setPeriodo(p) {
+  periodoAtivo = p;
+  document.querySelectorAll('.periodo-tab').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + p).classList.add('active');
+  renderDashboard();
+}
+
+function render3AnosView() {
+  const el = document.getElementById('dash-3anos');
+  el.innerHTML = '';
+
+  const anos = ['ano1','ano2','ano3'];
+  const labels = ['Ano 1','Ano 2','Ano 3'];
+
+  // Para cada grupo, mostrar os 3 anos side by side
+  state.grupos.filter(g => g.acervo).forEach(g => {
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'margin-bottom:16px;';
+
+    const titulo = document.createElement('div');
+    titulo.style.cssText = 'font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;display:flex;align-items:center;gap:8px;';
+    titulo.innerHTML = `<span style="width:10px;height:10px;border-radius:50%;background:${g.cor};display:inline-block;flex-shrink:0;"></span>${g.nome}`;
+    wrapper.appendChild(titulo);
+
+    const cols = document.createElement('div');
+    cols.style.cssText = 'display:flex;gap:10px;';
+
+    let todosOk = true;
+
+    anos.forEach((ano, i) => {
+      const per = getPeriodoDatas(ano);
+      const { treinos: t, comps: c, ni } = getEventosPeriodo(g.sigla, per.ini, per.fim);
+      const n3ok = calcNivelN3(t, c, ni);
+      const hoje = new Date();
+      const futuro = per.ini > hoje;
+      if (!n3ok && !futuro) todosOk = false;
+
+      const cls = futuro ? '' : n3ok ? 'ok-col' : 'bad-col';
+      const cT  = t>=20 ? 'var(--green)' : futuro ? 'var(--text3)' : 'var(--red)';
+      const cC  = c>=6  ? 'var(--green)' : futuro ? 'var(--text3)' : 'var(--red)';
+      const cNI = ni>=2 ? 'var(--green)' : futuro ? 'var(--text3)' : 'var(--red)';
+
+      const statusIcon = futuro ? '—' : n3ok ? '✓' : '✗';
+      const statusColor = futuro ? 'var(--text3)' : n3ok ? 'var(--green)' : 'var(--red)';
+      const bgStatus = futuro ? '' : n3ok ? 'background:var(--green-bg);' : 'background:var(--red-bg);';
+
+      const col = document.createElement('div');
+      col.className = `ano-col ${cls}`;
+      col.innerHTML = `
+        <div class="ano-col-title">
+          <span>${per.label}</span>
+          <span style="font-size:13px;${bgStatus}padding:2px 8px;border-radius:12px;color:${statusColor};">${statusIcon} ${futuro ? 'futuro' : n3ok ? 'ok' : 'falhou'}</span>
+        </div>
+        <div style="font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);margin-bottom:10px;">
+          ${per.ini.toLocaleDateString('pt-BR',{month:'short',year:'2-digit'})} → ${per.fim.toLocaleDateString('pt-BR',{month:'short',year:'2-digit'})}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;font-size:12px;font-family:'DM Mono',monospace;">
+          <div style="display:flex;justify-content:space-between;">
+            <span style="color:var(--text3);">Treinos</span>
+            <span style="font-weight:700;color:${cT}">${t}/20</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;">
+            <span style="color:var(--text3);">Comps</span>
+            <span style="font-weight:700;color:${cC}">${c}/6</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;">
+            <span style="color:var(--text3);">Nac/int</span>
+            <span style="font-weight:700;color:${cNI}">${ni}/2</span>
+          </div>
+        </div>
+      `;
+      cols.appendChild(col);
+    });
+
+    wrapper.appendChild(cols);
+
+    // Resumo do grupo nos 3 anos
+    const resumo = document.createElement('div');
+    resumo.style.cssText = `margin-top:6px;font-size:11px;font-family:'DM Mono',monospace;padding:6px 10px;border-radius:var(--radius-sm);${todosOk ? 'background:var(--green-bg);color:var(--green);' : 'background:var(--red-bg);color:var(--red);'}`;
+    resumo.textContent = todosOk ? '✓ Todos os períodos atendem N3 — apto para revalidação' : '✗ Um ou mais períodos abaixo do N3 — revalidação em risco';
+    wrapper.appendChild(resumo);
+
+    el.appendChild(wrapper);
+  });
+}
+
+// =============================================
+// DASHBOARD
+// =============================================
+function renderDashboard() {
+  const hoje = new Date();
+  const crData = state.cr_data ? new Date(state.cr_data) : null;
+  const is3anos = periodoAtivo === '3anos';
+
+  // Texto do CR
+  let periodoTxt = '— configure a data do CR em Configurações';
+  if (crData) {
+    const fim = new Date(crData); fim.setFullYear(fim.getFullYear() + 3);
+    const revalPrazo = new Date(fim); revalPrazo.setDate(revalPrazo.getDate() - 30);
+    const diasRestantes = Math.ceil((revalPrazo - hoje) / 86400000);
+    periodoTxt = `CR emitido ${crData.toLocaleDateString('pt-BR')} · revalidação até ${revalPrazo.toLocaleDateString('pt-BR')} · ${diasRestantes > 0 ? diasRestantes + ' dias' : 'VENCIDO'}`;
+  }
+  document.getElementById('dash-periodo').textContent = periodoTxt;
+
+  // Label do período selecionado
+  const perRangeEl = document.getElementById('dash-periodo-range');
+  if (!is3anos && crData) {
+    const per = getPeriodoDatas(periodoAtivo);
+    perRangeEl.textContent = `${per.ini.toLocaleDateString('pt-BR')} → ${per.fim.toLocaleDateString('pt-BR')}`;
+  } else if (is3anos && crData) {
+    const p1 = getPeriodoDatas('ano1'), p3 = getPeriodoDatas('ano3');
+    perRangeEl.textContent = `${p1.ini.toLocaleDateString('pt-BR')} → ${p3.fim.toLocaleDateString('pt-BR')} (3 anos completos)`;
+  } else {
+    perRangeEl.textContent = '';
+  }
+
+  // Função de busca de eventos de acordo com o período
+  function getEvPeriodo(grupo) {
+    if (is3anos) {
+      // soma os 3 anos
+      let t=0, c=0, ni=0;
+      ['ano1','ano2','ano3'].forEach(a => {
+        const per = getPeriodoDatas(a);
+        const r = getEventosPeriodo(grupo, per.ini, per.fim);
+        t += r.treinos; c += r.comps; ni += r.ni;
+      });
+      return {treinos:t, comps:c, ni};
+    } else {
+      const per = getPeriodoDatas(periodoAtivo);
+      return getEventosPeriodo(grupo, per.ini, per.fim);
+    }
+  }
+
+  // Stats gerais
+  let totalT=0, totalC=0;
+  state.eventos.forEach(ev => {
+    let incluir = false;
+    if (is3anos && crData) {
+      const p1=getPeriodoDatas('ano1'), p3=getPeriodoDatas('ano3');
+      const d=new Date(ev.data+'T12:00'); incluir = d>=p1.ini && d<=p3.fim;
+    } else if (crData) {
+      const per=getPeriodoDatas(periodoAtivo); const d=new Date(ev.data+'T12:00');
+      incluir = d>=per.ini && d<=per.fim;
+    } else {
+      const d=new Date(ev.data); const ini=new Date(hoje); ini.setDate(ini.getDate()-364);
+      incluir = d>=ini && d<=hoje;
+    }
+    if (incluir) { if(ev.tipo==='TREINAMENTO') totalT++; else totalC++; }
+  });
+
+  const periodoLabel = is3anos ? '3 anos' : getPeriodoDatas(periodoAtivo)?.label || '12m';
+  const statsEl = document.getElementById('dash-stats');
+  statsEl.innerHTML = `
+    <div class="stat"><div class="stat-label">Total eventos (${periodoLabel})</div><div class="stat-value">${totalT+totalC}</div><div class="stat-sub">período selecionado</div></div>
+    <div class="stat"><div class="stat-label">Treinos</div><div class="stat-value">${totalT}</div><div class="stat-sub">N3 exige 20/grupo/ano</div></div>
+    <div class="stat"><div class="stat-label">Competições</div><div class="stat-value">${totalC}</div><div class="stat-sub">N3 exige 6/grupo/ano</div></div>
+    <div class="stat"><div class="stat-label">Grupos no acervo</div><div class="stat-value">${state.grupos.filter(g=>g.acervo).length}/${state.grupos.length}</div><div class="stat-sub">de ${state.grupos.length} configurados</div></div>
+  `;
+
+  // Grupos
+  const niveisGrupos = [];
+  const gruposEl = document.getElementById('dash-grupos');
+  gruposEl.innerHTML = '';
+
+  state.grupos.filter(g => g.acervo).forEach(g => {
+    const { treinos: t, comps: c, ni } = getEvPeriodo(g.sigla);
+    const n3ok = calcNivelN3(t, c, ni);
+    const n2ok = t >= 12 && c >= 4;
+    const n1ok = (t + c) >= 8;
+    const nivel = n3ok ? 3 : n2ok ? 2 : n1ok ? 1 : 0;
+    niveisGrupos.push(nivel);
+
+    const cls = n3ok ? 'ok' : n2ok ? 'warn' : n1ok ? 'warn' : 'bad';
+    const bCls = n3ok ? 'ok' : n1ok ? 'warn' : 'bad';
+    const maxT = Math.max(20, t+2), maxC = Math.max(6, c+2), maxNI = Math.max(2, ni+1);
+    const pT = Math.round(t/maxT*100), pC = Math.round(c/maxC*100), pNI = Math.round(ni/maxNI*100);
+    const eT = Math.round(20/maxT*100), eC = Math.round(6/maxC*100), eNI = Math.round(2/maxNI*100);
+    const cT = t>=20?'var(--green)':'var(--red)', cC = c>=6?'var(--green)':'var(--red)', cNI = ni>=2?'var(--green)':'var(--red)';
+    const prazo = getPrazoN3(g.sigla);
+    const prazoTxt = prazo ? prazo.toLocaleDateString('pt-BR') : '—';
+    const diasPrazo = prazo ? Math.ceil((prazo - hoje)/86400000) : 0;
+
+    const div = document.createElement('div');
+    div.className = `grupo-card ${cls}`;
+    div.innerHTML = `
+      <div class="grupo-header">
+        <div class="grupo-nome">${g.nome}</div>
+        <span class="badge ${bCls}">N${nivel}</span>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label"><span>Treinos</span><span style="color:${cT}">${t}/20</span></div>
+        <div class="bar-track"><div class="bar-fill" style="width:${pT}%;background:${g.cor}"></div><div class="bar-marker" style="left:${eT}%"></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label"><span>Competições</span><span style="color:${cC}">${c}/6</span></div>
+        <div class="bar-track"><div class="bar-fill" style="width:${pC}%;background:${g.cor}"></div><div class="bar-marker" style="left:${eC}%"></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label"><span>Nac/int</span><span style="color:${cNI}">${ni}/2</span></div>
+        <div class="bar-track"><div class="bar-fill" style="width:${pNI}%;background:${g.cor}"></div><div class="bar-marker" style="left:${eNI}%"></div></div>
+      </div>
+      ${!is3anos ? `<div style="margin-top:10px;font-size:11px;font-family:'DM Mono',monospace;color:var(--text3);">Prazo N3 sem treinar: <span style="color:${diasPrazo>60?'var(--green)':diasPrazo>30?'var(--yellow)':'var(--red)'}">${prazoTxt}${prazo?' ('+diasPrazo+'d)':''}</span></div>` : ''}
+    `;
+    gruposEl.appendChild(div);
+  });
+
+  const nivelGeral = niveisGrupos.length ? Math.min(...niveisGrupos) : 0;
+  const ngEl = document.getElementById('dash-nivel-geral');
+  ngEl.textContent = nivelGeral > 0 ? `N${nivelGeral}` : '—';
+  ngEl.className = `nivel-display n${nivelGeral}`;
+
+  // Visão 3 anos
+  const el3anos = document.getElementById('dash-3anos');
+  if (is3anos) {
+    el3anos.style.display = 'block';
+    render3AnosView();
+  } else {
+    el3anos.style.display = 'none';
+  }
+
+  renderAlertas(niveisGrupos);
+  renderChartMensal();
+  renderChartDecaimento();
+}
+
+function renderAlertas(niveisGrupos) {
+  const el = document.getElementById('dash-alertas');
+  el.innerHTML = '';
+  const hoje = new Date();
+
+  state.grupos.filter(g => g.acervo).forEach((g, i) => {
+    const { treinos: t, comps: c, ni } = getEventosJanela(g.sigla, hoje);
+    const n3ok = calcNivelN3(t, c, ni);
+
+    if (!n3ok) {
+      const falhas = [];
+      if (t < 20) falhas.push(`${20-t} treino(s)`);
+      if (c < 6)  falhas.push(`${6-c} competição(ões)`);
+      if (ni < 2) falhas.push(`${2-ni} nac/int`);
+      const div = document.createElement('div');
+      div.className = 'alerta danger';
+      div.innerHTML = `<div class="alerta-icon">⚠</div><div><div class="alerta-title">${g.nome} — abaixo do N3</div><div class="alerta-text">Faltam: ${falhas.join(', ')} na janela de 12 meses</div></div>`;
+      el.appendChild(div);
+    } else {
+      const prazo = getPrazoN3(g.sigla);
+      const dias = prazo ? Math.ceil((prazo - hoje)/86400000) : 0;
+      if (dias <= 60) {
+        const div = document.createElement('div');
+        div.className = 'alerta warn';
+        div.innerHTML = `<div class="alerta-icon">⏰</div><div><div class="alerta-title">${g.nome} — atenção ao prazo</div><div class="alerta-text">N3 sustentado por mais ${dias} dias sem novos eventos (até ${prazo.toLocaleDateString('pt-BR')})</div></div>`;
+        el.appendChild(div);
+      }
+    }
+  });
+
+  if (el.innerHTML === '') {
+    el.innerHTML = `<div class="alerta ok"><div class="alerta-icon">✓</div><div><div class="alerta-title">Tudo em conformidade</div><div class="alerta-text">Todos os grupos atendem os critérios do nível configurado.</div></div></div>`;
+  }
+}
+
+function renderChartMensal() {
+  const canvas = document.getElementById('chart-mensal');
+  if (chartMensal) { chartMensal.destroy(); chartMensal = null; }
+
+  const meses = [];
+  const treinos = [];
+  const comps = [];
+  const hoje = new Date();
+
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+    const fim = new Date(d.getFullYear(), d.getMonth()+1, 0);
+    meses.push(d.toLocaleDateString('pt-BR', {month:'short',year:'2-digit'}));
+
+    // Treinos: contar dias únicos (1 dia de treino = 1, independente de quantos grupos)
+    const diasTreino = new Set();
+    // Competições: contar cada inscrição única (nome+data = 1 comp)
+    const inscricoes = new Set();
+    state.eventos.forEach(ev => {
+      const evd = new Date(ev.data + 'T12:00');
+      if (evd >= d && evd <= fim) {
+        if (ev.tipo === 'TREINAMENTO') {
+          diasTreino.add(ev.data); // dedup por dia apenas
+        } else {
+          inscricoes.add(ev.nome + '|' + ev.data); // dedup por nome+data
+        }
+      }
+    });
+    treinos.push(diasTreino.size);
+    comps.push(inscricoes.size);
+  }
+
+  chartMensal = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: meses,
+      datasets: [
+        { label:'Treinos', data: treinos, backgroundColor:'rgba(26,111,212,.55)', borderRadius:3 },
+        { label:'Comps',   data: comps,   backgroundColor:'rgba(14,158,106,.55)', borderRadius:3 },
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false} },
+      scales:{
+        x:{ stacked:true, ticks:{color:'#9298a8',font:{size:10}}, grid:{display:false} },
+        y:{ stacked:true, ticks:{color:'#9298a8',font:{size:10}}, grid:{color:'rgba(0,0,0,.06)'} }
+      }
+    }
+  });
+}
+
+function renderChartDecaimento() {
+  const canvas = document.getElementById('chart-decaimento');
+  if (chartDecaimento) { chartDecaimento.destroy(); chartDecaimento = null; }
+
+  const hoje = new Date();
+  const labels = [];
+  const datasets = [];
+
+  // Gerar labels (meses futuros)
+  for (let i = 0; i <= 12; i++) {
+    const d = new Date(hoje.getFullYear(), hoje.getMonth()+i, 1);
+    labels.push(d.toLocaleDateString('pt-BR', {month:'short',year:'2-digit'}));
+  }
+
+  state.grupos.filter(g => g.acervo).forEach(g => {
+    const data = labels.map((_, i) => {
+      const ref = new Date(hoje.getFullYear(), hoje.getMonth()+i, hoje.getDate());
+      const { treinos: t, comps: c, ni } = getEventosJanela(g.sigla, ref);
+      return calcNivelN3(t, c, ni) ? 1 : 0;
+    });
+    datasets.push({
+      label: g.sigla,
+      data,
+      borderColor: g.cor,
+      backgroundColor: 'transparent',
+      tension: 0,
+      pointRadius: 4,
+      borderWidth: 2,
+      stepped: true,
+    });
+  });
+
+  chartDecaimento = new Chart(canvas, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:true, labels:{ color:'#5a6072', font:{size:10}, boxWidth:10 } },
+        tooltip:{ callbacks:{ label: ctx => `${ctx.dataset.label}: ${ctx.raw ? 'N3 ✓' : 'falhou'}` } }
+      },
+      scales:{
+        x:{ ticks:{color:'#9298a8',font:{size:10}}, grid:{display:false} },
+        y:{ min:-0.1, max:1.3, ticks:{ color:'#9298a8', font:{size:10}, callback: v => v===1?'N3 ✓':v===0?'✗':'' }, grid:{color:'rgba(0,0,0,.06)'} }
+      }
+    }
+  });
+}
+
+// =============================================
+// EVENTOS
+// =============================================
+function populateGrupoSelects() {
+  ['ev-grupo','filtro-grupo'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const isFilter = id === 'filtro-grupo';
+    el.innerHTML = isFilter ? '<option value="">Todos os grupos</option>' : '';
+    state.grupos.forEach(g => {
+      el.innerHTML += `<option value="${g.sigla}">${g.sigla} — ${g.nome}</option>`;
+    });
+  });
+}
+
+function addEvento() {
+  const data  = document.getElementById('ev-data').value;
+  const grupo = document.getElementById('ev-grupo').value;
+  const tipo  = document.getElementById('ev-tipo').value;
+  const nivel = document.getElementById('ev-nivel').value;
+  const nome  = document.getElementById('ev-nome').value.trim();
+
+  if (!data || !grupo) { alert('Preencha data e grupo.'); return; }
+
+  const novoEv = {
+    id: Date.now() + Math.random(),
+    data, grupo, tipo, nivel,
+    nome: nome || (tipo === 'TREINAMENTO' ? 'Treinamento' : 'Competição'),
+  };
+  // Salvar na nuvem e usar o ID retornado
+  addEventoNuvem(novoEv).then(saved => {
+    if (saved) novoEv.id = saved.id;
+  });
+  state.eventos.unshift(novoEv);
+  state.eventos.sort((a,b) => b.data.localeCompare(a.data));
+  salvarState();
+  renderTabela();
+  document.getElementById('ev-nome').value = '';
+}
+
+function removeEvento(id) {
+  removeEventoNuvem(id);
+  state.eventos = state.eventos.filter(e => e.id !== id);
+  salvarState();
+  renderTabela();
+}
+
+function renderEventos() {
+  populateGrupoSelects();
+  renderTabela();
+}
+
+function renderTabela() {
+  const filtroGrupo = document.getElementById('filtro-grupo').value;
+  const filtroTipo  = document.getElementById('filtro-tipo').value;
+
+  let evs = state.eventos;
+  if (filtroGrupo) evs = evs.filter(e => e.grupo === filtroGrupo);
+  if (filtroTipo)  evs = evs.filter(e => e.tipo === filtroTipo);
+
+  document.getElementById('ev-count').textContent = evs.length;
+
+  const tbody = document.getElementById('tabela-eventos');
+  tbody.innerHTML = evs.length === 0
+    ? '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px;">Nenhum evento encontrado.</td></tr>'
+    : evs.map(e => {
+        const g = state.grupos.find(g => g.sigla === e.grupo);
+        const cor = g ? g.cor : '#888';
+        const tipoCls = e.tipo === 'TREINAMENTO' ? 'tipo-T' : 'tipo-C';
+        const tipoTxt = e.tipo === 'TREINAMENTO' ? 'TREINO' : 'COMP';
+        return `<tr>
+          <td>${new Date(e.data+'T12:00').toLocaleDateString('pt-BR')}</td>
+          <td><span style="color:${cor};font-weight:700;">${e.grupo}</span></td>
+          <td><span class="chip ${tipoCls}">${tipoTxt}</span></td>
+          <td style="color:var(--text2)">${e.nivel||'—'}</td>
+          <td style="color:var(--text)">${e.nome}</td>
+          <td><button class="btn danger small" onclick="removeEvento(${e.id})">✕</button></td>
+        </tr>`;
+      }).join('');
+}
+
+function limparTodos() {
+  if (confirm('Remover TODOS os eventos? Esta ação não pode ser desfeita.')) {
+    if (currentUser) {
+      supa.from('eventos').delete().eq('user_id', currentUser.id);
+    }
+    state.eventos = [];
+    salvarState();
+    renderTabela();
+  }
+}
+
+// =============================================
+// IMPORT CSV
+// =============================================
+function handleFileInput(event) {
+  const file = event.target.files[0];
+  if (file) processCSV(file);
+}
+function handleDrop(event) {
+  event.preventDefault();
+  document.getElementById('upload-zone').classList.remove('drag');
+  const file = event.dataTransfer.files[0];
+  if (file) processCSV(file);
+}
+
+function processCSV(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    const text = e.target.result;
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    if (!lines.length) return;
+
+    const sep = lines[0].includes(';') ? ';' : ',';
+    const headers = lines[0].split(sep).map(h => h.trim().replace(/^\uFEFF/, '').toUpperCase());
+
+    const iData   = headers.findIndex(h => h.includes('DATA'));
+    const iGrupo  = headers.findIndex(h => h.includes('GRUPO'));
+    const iEvento = headers.findIndex(h => h.includes('EVENTO'));
+    const iNivel  = headers.findIndex(h => h.includes('NIVEL') || h.includes('NÍVEL'));
+    const iTipo   = headers.findIndex(h => h.includes('TIPO'));
+
+    let importados = 0, erros = 0;
+
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(sep).map(c => c.trim());
+      try {
+        const rawData = cols[iData] || '';
+        const partes  = rawData.split(' a ')[0].trim().split('/');
+        if (partes.length < 3) { erros++; continue; }
+        const dataISO = `${partes[2]}-${partes[1].padStart(2,'0')}-${partes[0].padStart(2,'0')}`;
+
+        const nomeEvento = (cols[iEvento] || '').trim();
+        const tipo = (nomeEvento.toUpperCase().includes('TREINAMENTO') || (iTipo>=0 && cols[iTipo]?.toUpperCase().includes('TREINO')))
+          ? 'TREINAMENTO' : 'COMPETICAO';
+
+        const grupoRaw = (cols[iGrupo] || '').trim();
+        // Tentar mapear para sigla existente
+        let grupoSigla = grupoRaw;
+        const gMatch = state.grupos.find(g =>
+          g.nome.toLowerCase() === grupoRaw.toLowerCase() || g.sigla.toLowerCase() === grupoRaw.toLowerCase()
+        );
+        if (gMatch) grupoSigla = gMatch.sigla;
+        else {
+          // Criar grupo dinamicamente se não existir
+          if (!state.grupos.find(g => g.sigla === grupoRaw)) {
+            state.grupos.push({ sigla: grupoRaw.substring(0,6).toUpperCase(), nome: grupoRaw, cor: '#8a92a0', acervo: false });
+          }
+          grupoSigla = grupoRaw.substring(0,6).toUpperCase();
+        }
+
+        const nivel = (cols[iNivel] || '').trim().toUpperCase() || 'MUNICIPAL';
+
+        state.eventos.push({
+          id: Date.now() + Math.random() + i,
+          data: dataISO,
+          grupo: grupoSigla,
+          tipo, nivel,
+          nome: nomeEvento || (tipo === 'TREINAMENTO' ? 'Treinamento' : 'Competição'),
+        });
+        importados++;
+      } catch(err) { erros++; }
+    }
+
+    state.eventos.sort((a,b) => b.data.localeCompare(a.data));
+    salvarState();
+    // Importar lote na nuvem
+    importarEventosNuvem(state.eventos.filter(e => typeof e.id === 'number')).then(() => {
+      // Recarregar IDs da nuvem
+      carregarDadosNuvem().then(() => { renderTabela(); });
+    });
+    renderTabela();
+    populateGrupoSelects();
+
+    document.getElementById('import-feedback').innerHTML =
+      `<span style="color:var(--green)">✓ ${importados} eventos importados</span>${erros ? `<span style="color:var(--red)"> · ${erros} erros</span>` : ''}`;
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+function exportCSV() {
+  let csv = 'DATA;GRUPO ARMA;EVENTO;NIVEL;TIPO\n';
+  state.eventos.forEach(e => {
+    const d = new Date(e.data+'T12:00');
+    const dataFmt = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+    csv += `${dataFmt};${e.grupo};${e.nome};${e.nivel};${e.tipo}\n`;
+  });
+  download('habitualidade.csv', csv, 'text/csv');
+}
+
+// =============================================
+// CALENDÁRIO
+// =============================================
+function renderCalendario() {
+  const y = calAtual.getFullYear(), m = calAtual.getMonth();
+  document.getElementById('cal-titulo').textContent =
+    new Date(y, m, 1).toLocaleDateString('pt-BR', {month:'long',year:'numeric'});
+
+  const nomes = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+  document.getElementById('cal-nomes').innerHTML = nomes.map(n => `<div class="cal-day-name">${n}</div>`).join('');
+
+  const primeiro = new Date(y, m, 1).getDay();
+  const diasMes  = new Date(y, m+1, 0).getDate();
+  const hoje = new Date();
+
+  const diasEl = document.getElementById('cal-dias');
+  diasEl.innerHTML = '';
+
+  // Eventos deste mês indexados por dia
+  const eventosDia = {};
+  state.eventos.forEach(ev => {
+    const d = new Date(ev.data+'T12:00');
+    if (d.getFullYear() === y && d.getMonth() === m) {
+      const k = d.getDate();
+      if (!eventosDia[k]) eventosDia[k] = { treino: 0, comp: 0, evs:[] };
+      if (ev.tipo === 'TREINAMENTO') eventosDia[k].treino++;
+      else eventosDia[k].comp++;
+      eventosDia[k].evs.push(ev);
+    }
+  });
+
+  // Dias do mês anterior
+  for (let i = 0; i < primeiro; i++) {
+    const d = document.createElement('div');
+    d.className = 'cal-day other-month';
+    diasEl.appendChild(d);
+  }
+
+  for (let d = 1; d <= diasMes; d++) {
+    const div = document.createElement('div');
+    div.className = 'cal-day';
+    div.textContent = d;
+
+    const isHoje = hoje.getFullYear()===y && hoje.getMonth()===m && hoje.getDate()===d;
+    if (isHoje) div.classList.add('today');
+
+    const ev = eventosDia[d];
+    if (ev) {
+      if (ev.treino && ev.comp) div.classList.add('has-both');
+      else if (ev.treino) div.classList.add('has-treino');
+      else if (ev.comp)   div.classList.add('has-comp');
+      div.style.cursor = 'pointer';
+      div.onclick = () => mostrarDetalheDia(d, y, m, ev.evs);
+    }
+    diasEl.appendChild(div);
+  }
+}
+
+function calMes(delta) {
+  calAtual = new Date(calAtual.getFullYear(), calAtual.getMonth() + delta, 1);
+  renderCalendario();
+}
+
+function mostrarDetalheDia(dia, ano, mes, evs) {
+  const data = new Date(ano, mes, dia).toLocaleDateString('pt-BR', {weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const el = document.getElementById('cal-detalhe-content');
+  el.innerHTML = `<div style="font-size:12px;color:var(--text3);margin-bottom:10px;">${data}</div>` +
+    evs.map(e => {
+      const g = state.grupos.find(g => g.sigla === e.grupo);
+      const cor = g ? g.cor : '#888';
+      const tipoCls = e.tipo === 'TREINAMENTO' ? 'tipo-T' : 'tipo-C';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);">
+        <span class="chip ${tipoCls}" style="font-size:10px;">${e.tipo==='TREINAMENTO'?'TREINO':'COMP'}</span>
+        <span style="color:${cor};font-weight:700;font-size:12px;">${e.grupo}</span>
+        <span style="color:var(--text);font-size:12px;">${e.nome}</span>
+        <span style="color:var(--text3);font-size:11px;margin-left:auto;">${e.nivel}</span>
+      </div>`;
+    }).join('');
+}
+
+// =============================================
+// CONFIGURAÇÕES
+// =============================================
+function renderConfig() {
+  if (state.cr_data) document.getElementById('cfg-cr-data').value = state.cr_data;
+  document.getElementById('cfg-nivel').value = state.nivel;
+  renderListaGrupos();
+}
+
+function salvarConfig() {
+  state.cr_data = document.getElementById('cfg-cr-data').value;
+  state.nivel   = parseInt(document.getElementById('cfg-nivel').value);
+  salvarState();
+  salvarPerfilNuvem();
+}
+
+let modoGerenciar = false;
+
+function toggleGerenciar() {
+  modoGerenciar = !modoGerenciar;
+  const btn = document.getElementById('btn-gerenciar');
+  if (btn) {
+    btn.textContent = modoGerenciar ? '✓ Concluir' : '✎ Gerenciar';
+    btn.style.color = modoGerenciar ? 'var(--red)' : '';
+    btn.style.borderColor = modoGerenciar ? 'rgba(217,55,55,.3)' : '';
+  }
+  renderListaGrupos();
+}
+
+function renderListaGrupos() {
+  const el = document.getElementById('lista-grupos');
+  el.innerHTML = state.grupos.map((g) => {
+    const acervo = g.acervo === true;
+    const btnExcluir = modoGerenciar
+      ? `<button class="btn danger small" onclick="removerGrupo('${g.sigla}')" style="flex-shrink:0;">✕ Excluir</button>`
+      : '';
+    return `
+    <div class="config-grupo" style="border-left:3px solid ${acervo ? g.cor : 'var(--border2)'};">
+      <div class="config-grupo-header">
+        <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
+          <div style="width:12px;height:12px;border-radius:50%;background:${acervo ? g.cor : 'var(--border2)'};flex-shrink:0;"></div>
+          <div class="config-grupo-nome" style="color:${acervo ? 'var(--text)' : 'var(--text3)'};">${g.sigla} — ${g.nome}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+          <button
+            onclick="toggleAcervo('${g.sigla}')"
+            style="display:flex;align-items:center;gap:8px;background:${acervo ? 'var(--blue-bg)' : 'var(--bg4)'};border:1px solid ${acervo ? 'rgba(26,111,212,.3)' : 'var(--border2)'};border-radius:20px;padding:5px 12px;cursor:pointer;font-family:'DM Mono',monospace;font-size:12px;font-weight:600;color:${acervo ? 'var(--blue)' : 'var(--text3)'};transition:all .15s;white-space:nowrap;">
+            <span style="width:8px;height:8px;border-radius:50%;background:${acervo ? 'var(--blue)' : 'var(--border2)'};flex-shrink:0;display:inline-block;"></span>
+            ${acervo ? 'No acervo' : 'Fora do acervo'}
+          </button>
+          ${btnExcluir}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+
+function toggleAcervo(sigla) {
+  const g = state.grupos.find(g => g.sigla === sigla);
+  if (g) { g.acervo = !g.acervo; salvarState(); salvarGruposNuvem(); renderListaGrupos(); }
+}
+
+function showAddGrupo() { document.getElementById('form-novo-grupo').style.display = 'block'; }
+function hideAddGrupo() { document.getElementById('form-novo-grupo').style.display = 'none'; }
+
+function addGrupo() {
+  const sigla = document.getElementById('ng-sigla').value.trim().toUpperCase();
+  const nome  = document.getElementById('ng-nome').value.trim();
+  const cor   = document.getElementById('ng-cor').value;
+  if (!sigla || !nome) { alert('Preencha sigla e nome.'); return; }
+  if (state.grupos.find(g => g.sigla === sigla)) { alert('Sigla já existe.'); return; }
+  state.grupos.push({ sigla, nome, cor, acervo: false });
+  salvarState();
+  salvarGruposNuvem();
+  renderListaGrupos();
+  populateGrupoSelects();
+  hideAddGrupo();
+  document.getElementById('ng-sigla').value = '';
+  document.getElementById('ng-nome').value = '';
+}
+
+function removerGrupo(sigla) {
+  const idx = state.grupos.findIndex(g => g.sigla === sigla);
+  if (idx === -1) return;
+  state.grupos.splice(idx, 1);
+  salvarState();
+  salvarGruposNuvem();
+  renderListaGrupos();
+  populateGrupoSelects();
+}
+
+// =============================================
+// BACKUP / RESTORE
+// =============================================
+function exportarDados() {
+  download('cac_backup.json', JSON.stringify(state, null, 2), 'application/json');
+}
+
+function importarJSON(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const imported = JSON.parse(e.target.result);
+      if (confirm(`Importar backup com ${imported.eventos?.length || 0} eventos? Os dados atuais serão substituídos.`)) {
+        state = { ...state, ...imported };
+        salvarState();
+        renderConfig();
+        alert('Backup importado com sucesso!');
+      }
+    } catch(err) { alert('Arquivo inválido.'); }
+  };
+  reader.readAsText(file);
+}
+
+function resetarTudo() {
+  if (confirm('Resetar TODOS os dados? Esta ação não pode ser desfeita.')) {
+    if (currentUser) {
+      supa.from('eventos').delete().eq('user_id', currentUser.id);
+    }
+    state.eventos = [];
+    salvarState();
+    renderTabela();
+    alert('Dados resetados.');
+  }
+}
+
+// =============================================
+// UTILS
+// =============================================
+function download(filename, content, mime) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], {type: mime}));
+  a.download = filename;
+  a.click();
+}
+
+function salvarConfig() {
+  state.cr_data = document.getElementById('cfg-cr-data').value;
+  state.nivel   = parseInt(document.getElementById('cfg-nivel').value);
+  salvarState();
+  salvarPerfilNuvem();
+}
+
+// =============================================
+// INIT
+// =============================================
+// =============================================
+// SUPABASE CONFIG
+// =============================================
+const SUPA_URL  = 'https://tcxbdtotntsyfznzejrs.supabase.co';
+const SUPA_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjeGJkdG90bnRzeWZ6bnplanJzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2MjI3NzIsImV4cCI6MjA5NDE5ODc3Mn0.92uFWuXDD4CO2V7ypZkB0EeFDArg5L_AWNzVwDbKIek';
+const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
+let currentUser = null;
+
+// =============================================
+// AUTH — tela de login/cadastro
+// =============================================
+function showAuthScreen() {
+  document.getElementById('app-shell').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'flex';
+}
+function showAppScreen() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app-shell').style.display = 'flex';
+}
+
+async function doLogin() {
+  const email = document.getElementById('auth-email').value.trim();
+  const pass  = document.getElementById('auth-pass').value;
+  const msg   = document.getElementById('auth-msg');
+  msg.textContent = 'Entrando...'; msg.style.color = 'var(--text3)';
+  const { error } = await supa.auth.signInWithPassword({ email, password: pass });
+  if (error) { msg.textContent = error.message; msg.style.color = 'var(--red)'; }
+}
+
+async function doSignup() {
+  const email = document.getElementById('auth-email').value.trim();
+  const pass  = document.getElementById('auth-pass').value;
+  const msg   = document.getElementById('auth-msg');
+  if (pass.length < 6) { msg.textContent = 'Senha mínima: 6 caracteres'; msg.style.color = 'var(--red)'; return; }
+  msg.textContent = 'Criando conta...'; msg.style.color = 'var(--text3)';
+  const { error } = await supa.auth.signUp({ email, password: pass });
+  if (error) { msg.textContent = error.message; msg.style.color = 'var(--red)'; }
+  else { msg.textContent = 'Conta criada! Verifique seu e-mail.'; msg.style.color = 'var(--green)'; }
+}
+
+async function doLogout() {
+  await supa.auth.signOut();
+}
+
+function toggleAuthMode() {
+  const isLogin = document.getElementById('auth-btn-login').style.display !== 'none';
+  document.getElementById('auth-btn-login').style.display  = isLogin ? 'none'  : 'block';
+  document.getElementById('auth-btn-signup').style.display = isLogin ? 'block' : 'none';
+  document.getElementById('auth-toggle-txt').textContent   = isLogin ? 'Já tem conta? Entrar' : 'Não tem conta? Criar';
+  document.getElementById('auth-title').textContent        = isLogin ? 'Criar conta' : 'Entrar';
+  document.getElementById('auth-msg').textContent = '';
+}
+
+// =============================================
+// SUPABASE — carregar dados do usuário
+// =============================================
+async function carregarDadosNuvem() {
+  if (!currentUser) return;
+
+  // Perfil / CR
+  const { data: perfil } = await supa.from('perfis').select('*').eq('id', currentUser.id).single();
+  if (perfil) {
+    state.cr_data = perfil.cr_data || '';
+    state.nivel   = perfil.nivel || 1;
+  }
+
+  // Grupos
+  const { data: grupos } = await supa.from('grupos').select('*').eq('user_id', currentUser.id).order('ordem');
+  if (grupos && grupos.length > 0) {
+    state.grupos = grupos.map(g => ({
+      sigla: g.sigla, nome: g.nome, cor: g.cor, acervo: g.acervo
+    }));
+  }
+
+  // Eventos
+  const { data: eventos } = await supa.from('eventos').select('*').eq('user_id', currentUser.id).order('data', { ascending: false });
+  if (eventos) {
+    state.eventos = eventos.map(e => ({
+      id: e.id, data: e.data, grupo: e.grupo_sigla,
+      tipo: e.tipo, nivel: e.nivel, nome: e.nome
+    }));
+  }
+}
+
+// =============================================
+// SUPABASE — salvar perfil
+// =============================================
+async function salvarPerfilNuvem() {
+  if (!currentUser) return;
+  await supa.from('perfis').upsert({
+    id: currentUser.id,
+    cr_data: state.cr_data || null,
+    nivel: state.nivel
+  });
+}
+
+// =============================================
+// SUPABASE — salvar grupos
+// =============================================
+async function salvarGruposNuvem() {
+  if (!currentUser) return;
+  // Apagar todos e reinserir (simples e confiável para listas pequenas)
+  await supa.from('grupos').delete().eq('user_id', currentUser.id);
+  if (state.grupos.length > 0) {
+    await supa.from('grupos').insert(
+      state.grupos.map((g, i) => ({
+        user_id: currentUser.id,
+        sigla: g.sigla, nome: g.nome, cor: g.cor,
+        acervo: g.acervo, ordem: i
+      }))
+    );
+  }
+}
+
+// =============================================
+// SUPABASE — adicionar evento
+// =============================================
+async function addEventoNuvem(ev) {
+  if (!currentUser) return null;
+  const { data, error } = await supa.from('eventos').insert({
+    user_id: currentUser.id,
+    data: ev.data, grupo_sigla: ev.grupo,
+    tipo: ev.tipo, nivel: ev.nivel, nome: ev.nome
+  }).select().single();
+  return data;
+}
+
+// =============================================
+// SUPABASE — remover evento
+// =============================================
+async function removeEventoNuvem(id) {
+  if (!currentUser) return;
+  await supa.from('eventos').delete().eq('id', id).eq('user_id', currentUser.id);
+}
+
+// =============================================
+// SUPABASE — importar lote de eventos (CSV)
+// =============================================
+async function importarEventosNuvem(eventos) {
+  if (!currentUser || !eventos.length) return;
+  const lote = eventos.map(e => ({
+    user_id: currentUser.id,
+    data: e.data, grupo_sigla: e.grupo,
+    tipo: e.tipo, nivel: e.nivel, nome: e.nome
+  }));
+  // inserir em chunks de 500
+  for (let i = 0; i < lote.length; i += 500) {
+    await supa.from('eventos').insert(lote.slice(i, i+500));
+  }
+}
+
+// =============================================
+// INICIALIZAÇÃO COM SUPABASE AUTH
+// =============================================
+carregarState(); // carrega preferências locais temporárias
+
+// Listener de autenticação
+supa.auth.onAuthStateChange(async (event, session) => {
+  if (session && session.user) {
+    currentUser = session.user;
+    document.getElementById('header-user-email').textContent = currentUser.email;
+
+    // Carregar dados da nuvem
+    await carregarDadosNuvem();
+
+    // Inicializar app
+    populateGrupoSelects();
+    renderDashboard();
+    document.getElementById('ev-data').value = new Date().toISOString().split('T')[0];
+    showAppScreen();
+  } else {
+    currentUser = null;
+    showAuthScreen();
+  }
+});
+
+// Verificar sessão existente
+(async () => {
+  const { data: { session } } = await supa.auth.getSession();
+  if (!session) {
+    showAuthScreen();
+  }
+})();
+
+</script>
+</div><!-- /app-shell -->
+</body>
+</html>
