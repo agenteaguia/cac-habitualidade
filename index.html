@@ -1744,7 +1744,7 @@ async function toggleRole(userId, currentRole) {
 }
 
 async function deletarUsuario(userId, email) {
-  if (!confirm(\`Remover o usuário \${email}? Todos os dados serão apagados.\`)) return;
+  if (!confirm('Remover o usuário ' + email + '? Todos os dados serão apagados.')) return;
   // Apagar dados do usuário (RLS permite ao admin)
   await supa.from('eventos').delete().eq('user_id', userId);
   await supa.from('grupos').delete().eq('user_id', userId);
