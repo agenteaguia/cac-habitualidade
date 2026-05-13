@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CAC · Habitualidade</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -266,6 +266,7 @@
       <button onclick="goTo('eventos')">Eventos</button>
       <button onclick="goTo('calendario')">Calendário</button>
       <button onclick="goTo('config')">Configurações</button>
+      <button id="nav-usuarios" onclick="goTo('usuarios')" style="display:none;">Usuários</button>
     </nav>
   </header>
   <main>
@@ -516,6 +517,55 @@
       </div>
     </div>
 
+
+    <!-- USUÁRIOS (admin only) -->
+    <div id="view-usuarios" class="view">
+      <div class="section-title">Gestão de usuários</div>
+      <div class="section-sub">Visualize, adicione e remova usuários do sistema</div>
+
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-title">Convidar novo usuário</div>
+        <div class="form-row">
+          <div>
+            <label>E-mail</label>
+            <input type="email" id="invite-email" placeholder="usuario@email.com">
+          </div>
+          <div>
+            <label>Senha inicial</label>
+            <input type="password" id="invite-pass" placeholder="mínimo 6 caracteres">
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <button class="btn" onclick="criarUsuario()">+ Criar usuário</button>
+          <span id="invite-msg" style="font-size:12px;font-family:'DM Mono',monospace;color:var(--text3);"></span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+          <div class="card-title" style="margin-bottom:0;">Usuários cadastrados (<span id="users-count">0</span>)</div>
+          <button class="btn secondary small" onclick="carregarUsuarios()">↻ Atualizar</button>
+        </div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>E-mail</th>
+                <th>Perfil</th>
+                <th>CR</th>
+                <th>Nível</th>
+                <th>Eventos</th>
+                <th>Último acesso</th>
+                <th>Role</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="tabela-usuarios"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
   </main>
 </div>
 
@@ -574,6 +624,7 @@ function goTo(view) {
   if (view === 'eventos')   renderEventos();
   if (view === 'calendario') renderCalendario();
   if (view === 'config')    renderConfig();
+  if (view === 'usuarios')  carregarUsuarios();
 }
 
 // =============================================
@@ -1463,7 +1514,7 @@ function salvarConfig() {
 // =============================================
 const SUPA_URL  = 'https://tcxbdtotntsyfznzejrs.supabase.co';
 const SUPA_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjeGJkdG90bnRzeWZ6bnplanJzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2MjI3NzIsImV4cCI6MjA5NDE5ODc3Mn0.92uFWuXDD4CO2V7ypZkB0EeFDArg5L_AWNzVwDbKIek';
-const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
+const supa = (window.supabase || supabase).createClient(SUPA_URL, SUPA_KEY);
 let currentUser = null;
 
 // =============================================
@@ -1610,6 +1661,99 @@ async function importarEventosNuvem(eventos) {
 }
 
 // =============================================
+// ADMIN — gestão de usuários
+// =============================================
+let isAdmin = false;
+
+async function verificarAdmin() {
+  if (!currentUser) return;
+  const { data } = await supa.from('user_roles')
+    .select('role').eq('user_id', currentUser.id).single();
+  isAdmin = data?.role === 'admin';
+  const navBtn = document.getElementById('nav-usuarios');
+  if (navBtn) navBtn.style.display = isAdmin ? 'inline-flex' : 'none';
+}
+
+async function carregarUsuarios() {
+  if (!isAdmin) return;
+  const { data, error } = await supa.from('admin_users').select('*').order('created_at');
+  if (error) { console.error(error); return; }
+
+  document.getElementById('users-count').textContent = data.length;
+  const tbody = document.getElementById('tabela-usuarios');
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:24px;">Nenhum usuário.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = data.map(u => {
+    const isMe = u.id === currentUser.id;
+    const roleColor = u.role === 'admin' ? 'var(--blue)' : 'var(--text3)';
+    const ultimo = u.last_sign_in_at
+      ? new Date(u.last_sign_in_at).toLocaleDateString('pt-BR')
+      : '—';
+    const cr = u.cr_data
+      ? new Date(u.cr_data + 'T12:00').toLocaleDateString('pt-BR')
+      : '—';
+    return `<tr>
+      <td style="color:var(--text);">${u.email}${isMe ? ' <span style="color:var(--blue);font-size:10px;">(você)</span>' : ''}</td>
+      <td>${u.id}</td>
+      <td>${cr}</td>
+      <td style="color:var(--text2);">N${u.nivel || 1}</td>
+      <td style="color:var(--text2);">${u.total_eventos}</td>
+      <td>${ultimo}</td>
+      <td><span style="color:${roleColor};font-weight:700;font-family:'DM Mono',monospace;font-size:11px;">${u.role}</span></td>
+      <td style="display:flex;gap:6px;">
+        ${!isMe ? `
+          <button class="btn secondary small" onclick="toggleRole('${u.id}','${u.role}')">${u.role === 'admin' ? '↓ user' : '↑ admin'}</button>
+          <button class="btn danger small" onclick="deletarUsuario('${u.id}','${u.email}')">✕</button>
+        ` : ''}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function criarUsuario() {
+  const email = document.getElementById('invite-email').value.trim();
+  const pass  = document.getElementById('invite-pass').value;
+  const msg   = document.getElementById('invite-msg');
+  if (!email || pass.length < 6) {
+    msg.style.color = 'var(--red)'; msg.textContent = 'Preencha e-mail e senha (mín. 6 chars)'; return;
+  }
+  msg.style.color = 'var(--text3)'; msg.textContent = 'Criando...';
+
+  // Usar Supabase Admin via signUp (sem confirmação de e-mail)
+  const { data, error } = await supa.auth.admin?.createUser
+    ? supa.auth.admin.createUser({ email, password: pass, email_confirm: true })
+    : supa.auth.signUp({ email, password: pass });
+
+  if (error) {
+    msg.style.color = 'var(--red)'; msg.textContent = error.message;
+  } else {
+    msg.style.color = 'var(--green)'; msg.textContent = `✓ Usuário ${email} criado`;
+    document.getElementById('invite-email').value = '';
+    document.getElementById('invite-pass').value = '';
+    setTimeout(carregarUsuarios, 1000);
+  }
+}
+
+async function toggleRole(userId, currentRole) {
+  const novoRole = currentRole === 'admin' ? 'user' : 'admin';
+  await supa.from('user_roles').upsert({ user_id: userId, role: novoRole });
+  carregarUsuarios();
+}
+
+async function deletarUsuario(userId, email) {
+  if (!confirm(\`Remover o usuário \${email}? Todos os dados serão apagados.\`)) return;
+  // Apagar dados do usuário (RLS permite ao admin)
+  await supa.from('eventos').delete().eq('user_id', userId);
+  await supa.from('grupos').delete().eq('user_id', userId);
+  await supa.from('perfis').delete().eq('id', userId);
+  await supa.from('user_roles').delete().eq('user_id', userId);
+  carregarUsuarios();
+}
+
+// =============================================
 // INICIALIZAÇÃO COM SUPABASE AUTH
 // =============================================
 carregarState(); // carrega preferências locais temporárias
@@ -1627,6 +1771,7 @@ supa.auth.onAuthStateChange(async (event, session) => {
     populateGrupoSelects();
     renderDashboard();
     document.getElementById('ev-data').value = new Date().toISOString().split('T')[0];
+    await verificarAdmin();
     showAppScreen();
   } else {
     currentUser = null;
